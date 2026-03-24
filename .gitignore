@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Report outputs (keep generate-report.js)
+reports/*.json
+reports/*.html
+reports/html-report/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Allure
+allure-results/
+allure-report/
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+Thumbs.db
+.DS_Store

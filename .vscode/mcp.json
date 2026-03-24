@@ -1,0 +1,44 @@
+{
+  "servers": {
+    "playwright-test": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "playwright",
+        "run-test-mcp-server"
+      ]
+    },
+    "jira": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-jira-cloud"
+      ],
+      "env": {
+        "JIRA_BASE_URL": "${input:jiraBaseUrl}",
+        "JIRA_USER_EMAIL": "${input:jiraEmail}",
+        "JIRA_API_TOKEN": "${input:jiraApiToken}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "jiraBaseUrl",
+      "type": "promptString",
+      "description": "Jira Cloud base URL (e.g. https://yourcompany.atlassian.net)",
+      "default": "https://yourcompany.atlassian.net"
+    },
+    {
+      "id": "jiraEmail",
+      "type": "promptString",
+      "description": "Jira account email address"
+    },
+    {
+      "id": "jiraApiToken",
+      "type": "promptString",
+      "description": "Jira API token (generate at https://id.atlassian.com/manage-profile/security/api-tokens)",
+      "password": true
+    }
+  ]
+}
