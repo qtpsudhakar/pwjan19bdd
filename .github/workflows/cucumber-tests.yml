@@ -1,0 +1,113 @@
+name: Cucumber BDD Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Cucumber profile to run (default or pom)'
+        required: false
+        default: 'pom'
+        type: choice
+        options:
+          - default
+          - pom
+      tags:
+        description: 'Cucumber tags to filter (e.g. @login, @employee, @user-management)'
+        required: false
+        default: ''
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+# Allow GitHub Pages deployment
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  cucumber-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Cucumber tests (default profile)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.profile == 'default' }}
+        run: |
+          if [ -n "${{ inputs.tags }}" ]; then
+            npx cucumber-js --config cucumber.js --tags "${{ inputs.tags }}"
+          else
+            npm test
+          fi
+        env:
+          HEADLESS: true
+
+      - name: Run Cucumber tests (pom profile)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.profile == 'pom' }}
+        run: |
+          if [ -n "${{ inputs.tags }}" ]; then
+            npx cucumber-js --profile pom --config cucumber.js --tags "${{ inputs.tags }}"
+          else
+            npm run test:pom
+          fi
+        env:
+          HEADLESS: true
+
+      # Restore Allure history from gh-pages so trend/history data is preserved
+      - name: Restore Allure history from GitHub Pages
+        if: always()
+        continue-on-error: true
+        run: |
+          git fetch origin gh-pages --depth=1 2>/dev/null || echo "No gh-pages branch yet, skipping history restore."
+          if git show-ref --quiet refs/remotes/origin/gh-pages; then
+            mkdir -p allure-results/history
+            git show origin/gh-pages:history 2>/dev/null | tar -x -C allure-results/history || \
+            git checkout origin/gh-pages -- history 2>/dev/null && \
+            cp -r history/. allure-results/history/ 2>/dev/null || \
+            echo "No history folder found on gh-pages, starting fresh."
+          fi
+
+      - name: Generate Allure report
+        if: always()
+        run: npm run allure:generate
+
+      - name: Upload Cucumber HTML report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cucumber-html-report
+          path: reports/
+          retention-days: 30
+
+      # Deploy Allure report to GitHub Pages (preserves history via the history/ folder in gh-pages)
+      - name: Deploy Allure report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          publish_branch: gh-pages
+          destination_dir: .
+          keep_files: false
+          # Preserve the history folder across deployments for trend charts
+          exclude_assets: ''
+          commit_message: 'ci: publish Allure report [${{ github.run_number }}] - ${{ github.sha }}'
